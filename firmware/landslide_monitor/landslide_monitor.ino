@@ -459,6 +459,23 @@ int adcAverage(int pin) {
   return (int)(s / 4);
 }
 
+// Median across five 10 Hz channel averages: rejects isolated spikes, not sustained wetting.
+static int waterMedianSamples[5];
+static uint8_t waterMedianCount = 0, waterMedianPos = 0;
+int waterMedian(int value) {
+  waterMedianSamples[waterMedianPos] = value;
+  waterMedianPos = (waterMedianPos + 1) % 5;
+  if (waterMedianCount < 5) ++waterMedianCount;
+  int sorted[5];
+  for (uint8_t i = 0; i < waterMedianCount; ++i) {
+    sorted[i] = waterMedianSamples[i];
+    for (int j = i; j > 0 && sorted[j] < sorted[j-1]; --j) {
+      int tmp = sorted[j]; sorted[j] = sorted[j-1]; sorted[j-1] = tmp;
+    }
+  }
+  return sorted[waterMedianCount / 2];
+}
+
 void adcSample() {
   uint32_t now = millis();
   if (now - lastAdcMs < ADC_PERIOD_MS) return;
@@ -482,7 +499,8 @@ void adcSample() {
 
   int w = adcAverage(PIN_WATER_S);
   water.raw = w;
-  water.filt = ls::isFiniteF(water.filt) ? water.filt + 0.3f * (w - water.filt) : (float)w;
+  int filteredInput = waterMedian(w);
+  water.filt = ls::isFiniteF(water.filt) ? water.filt + 0.3f * (filteredInput - water.filt) : (float)filteredInput;
   water.win.add((float)w);
 }
 
@@ -976,7 +994,7 @@ bool queuePickNext(Reading& out, bool& isLive) {
   xSemaphoreTake(queueMutex, portMAX_DELAY);
   if (queueCount > 0) {
     Reading& newest = queueItems[(queueHead + queueCount - 1) % QUEUE_CAP];
-    if (newest.attempts == 0) {
+    if (newest.attempts == 0 && millis() - newest.uptimeMs <= PRED_FRESH_MS) {
       out = newest;
       isLive = true;
     } else {
@@ -1227,7 +1245,7 @@ void handleResponse(const Reading& r, bool isLive, const char* body) {
 
   if (changed) Serial.printf("[ml] %s (confidence %.2f, model %s)\n", ls::riskName(p.risk), p.confidence, p.modelVersion);
   if (isLive && c != ls::PC_VALID && c != ls::PC_UNAVAILABLE)
-    Serial.printf("[net] prediction response rejected: %s\n", ls::predCheckName(c));
+    Serial.printf("[net] prediction response rejected: %s (reading age %lu ms)\n", ls::predCheckName(c), (unsigned long)age);
 }
 
 void netTask(void*) {
@@ -1287,6 +1305,8 @@ void netTask(void*) {
       vTaskDelay(pdMS_TO_TICKS(20));
       continue;
     }
+    // Never present backlog as a fresh reading or let it drive alerts.
+    if (millis() - r.uptimeMs > PRED_FRESH_MS) isLive = false;
     bool replay = !isLive || r.attempts > 0;
     if (!buildTelemetryJson(r, replay, netJson, sizeof(netJson))) {
       Serial.println("[net] JSON buffer overflow; reading dropped");
