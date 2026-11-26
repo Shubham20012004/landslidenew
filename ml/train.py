@@ -32,7 +32,7 @@ import pandas as pd
 import sklearn
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold
+from sklearn.model_selection import GridSearchCV, StratifiedGroupKFold, ParameterGrid
 from sklearn.pipeline import Pipeline
 
 from . import datasets
@@ -44,8 +44,9 @@ from .registry import DEFAULT_ARTIFACTS_DIR, Registry, RegistryError, atomic_wri
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB = REPO_ROOT / "backend" / "data" / "landslide.db"
 PARAM_GRID = {
-    "rf__max_depth": [None, 14],
-    "rf__min_samples_leaf": [1, 5],
+    "rf__max_depth": [None, 14, 24],
+    "rf__min_samples_leaf": [2, 5, 10],
+    "rf__max_features": ["sqrt", 0.7],
 }
 LIMITATIONS = {
     "test_fixture": ["Automated test fixture model; meaningless outside the test suite."],
@@ -135,7 +136,7 @@ def train(source: str, *, db_path: Path, synthetic_path: Path, artifacts: Path, 
     cv = StratifiedGroupKFold(n_splits=cv_splits, shuffle=True, random_state=seed)
     search = GridSearchCV(pipeline, PARAM_GRID, scoring="f1_macro", cv=cv, n_jobs=1, refit=True,
                           return_train_score=False)
-    say(f"[5/9] grouped {cv_splits}-fold CV grid search over {len(PARAM_GRID['rf__max_depth']) * len(PARAM_GRID['rf__min_samples_leaf'])} settings")
+    say(f"[5/9] grouped {cv_splits}-fold CV grid search over {len(ParameterGrid(PARAM_GRID))} settings")
     search.fit(X_tr, y_tr, groups=g_tr)
     model = search.best_estimator_
     cv_results = [
@@ -187,6 +188,11 @@ def train(source: str, *, db_path: Path, synthetic_path: Path, artifacts: Path, 
             "results": cv_results,
         },
         "test": test_metrics,
+        "scenario_validation": {
+            str(name): {"rows": int(len(group)), "accuracy": float(np.mean(model.predict(group[FEATURE_NAMES]) == group["label"].to_numpy())),
+                        "predicted_counts": {str(k): int(v) for k, v in pd.Series(model.predict(group[FEATURE_NAMES])).value_counts().items()}}
+            for name, group in test_df.groupby("scenario")
+        } if "scenario" in test_df.columns else {},
         "majority_class_baseline": baseline,
         "feature_importance": importance,
         "training_seconds": round(time.time() - started, 1),
