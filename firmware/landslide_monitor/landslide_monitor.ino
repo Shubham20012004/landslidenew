@@ -59,7 +59,7 @@
 // ----------------------------------------------------------------------------
 // Versions
 // ----------------------------------------------------------------------------
-static const char* FW_VERSION = "4.0.0";
+static const char* FW_VERSION = "4.0.1";
 static const char* TELEMETRY_SCHEMA = "2.0";
 static const char* FEATURE_SCHEMA = "fs-1";
 
@@ -462,6 +462,8 @@ int adcAverage(int pin) {
 // Median across five 10 Hz channel averages: rejects isolated spikes, not sustained wetting.
 static int waterMedianSamples[5];
 static uint8_t waterMedianCount = 0, waterMedianPos = 0;
+static ls::Series<16> waterMedianWindow;
+static uint8_t waterNoisyWindows = 0;
 int waterMedian(int value) {
   waterMedianSamples[waterMedianPos] = value;
   waterMedianPos = (waterMedianPos + 1) % 5;
@@ -502,6 +504,7 @@ void adcSample() {
   int filteredInput = waterMedian(w);
   water.filt = ls::isFiniteF(water.filt) ? water.filt + 0.3f * (filteredInput - water.filt) : (float)filteredInput;
   water.win.add((float)w);
+  waterMedianWindow.add((float)now / 1000.0f, (float)filteredInput);
 }
 
 // ----------------------------------------------------------------------------
@@ -514,6 +517,10 @@ void resetSessionHistories() {
   water.rate = water.mean30 = NAN;
   water.wetSeconds = 0;
   water.wetDurationValid = true;
+  waterNoisyWindows = 0;
+  waterMedianWindow.clear();
+  waterMedianCount = waterMedianPos = 0;
+  water.win.reset();
   mpu.tiltSeries.clear();
   mpu.tiltRate = NAN;
   mpu.flags = 0;
@@ -789,12 +796,24 @@ void snapshotSoil(float ts) {
 void snapshotWater(float ts, float dtS) {
   float winStd = water.win.stddev();
   water.win.reset();
+  // A single noisy raw window need not invalidate a clean median signal.
+  // Persistent raw noise or a noisy median signal still blocks inference.
+  float medianStd = waterMedianWindow.stddev((float)millis() / 1000.0f, 1.0f, 5);
+  bool rawNoisy = ls::isFiniteF(winStd) && winStd > ls::ADC_UNSTABLE_STD;
+  if (rawNoisy) { if (waterNoisyWindows < 3) ++waterNoisyWindows; }
+  else waterNoisyWindows = 0;
   ls::WaterQuality q = ls::classifyWater(water.raw, water.filt, winStd);
+  if (q.health == ls::H_FAULT && (q.flags & ls::WF_UNSTABLE) &&
+      water.raw < ls::WATER_HIGH_RAIL_THRESHOLD && waterNoisyWindows < 3 &&
+      ls::isFiniteF(medianStd) && medianStd <= ls::ADC_UNSTABLE_STD &&
+      ls::isFiniteF(water.filt)) {
+    q.health = ls::H_SUSPECT;  // retain quality flag; filtered signal is usable
+  }
   water.health = q.health;
   water.flags = q.flags;
   if (q.health == ls::H_FAULT) {
     water.wet = NAN;
-    water.series.clear();
+    // Do not insert invalid samples or erase valid history. The series ages out naturally.
     water.wetSeconds = 0;
     water.wetDurationValid = false;  // continuity broken: duration unknown
   } else {
@@ -808,7 +827,7 @@ void snapshotWater(float ts, float dtS) {
     }
   }
   water.rate = water.series.slopePerMin(ts, WATER_WIN_S, WATER_MIN_PTS, 9.0f);
-  water.mean30 = water.series.mean(ts, WATER_WIN_S, WATER_MIN_PTS);
+  water.mean30 = water.health == ls::H_FAULT ? NAN : water.series.mean(ts, WATER_WIN_S, WATER_MIN_PTS);
 }
 
 void snapshotMpu(float ts) {
