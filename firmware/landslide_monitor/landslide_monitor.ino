@@ -59,7 +59,7 @@
 // ----------------------------------------------------------------------------
 // Versions
 // ----------------------------------------------------------------------------
-static const char* FW_VERSION = "4.0.2";
+static const char* FW_VERSION = "4.0.3";
 static const char* TELEMETRY_SCHEMA = "2.0";
 static const char* FEATURE_SCHEMA = "fs-1";
 
@@ -188,6 +188,7 @@ static struct {
   float wet, rate, mean30;
   float wetSeconds;
   bool wetDurationValid;
+  bool wetDurationLowerBound;
   Health health;
   uint16_t flags;
   ls::RunningStats win;
@@ -521,7 +522,8 @@ void resetSessionHistories() {
   water.series.clear();
   water.rate = water.mean30 = NAN;
   water.wetSeconds = 0;
-  water.wetDurationValid = true;
+  water.wetDurationValid = false;
+  water.wetDurationLowerBound = true;
   waterNoisyWindows = 0;
   waterRecoveryWindows = 0;
   waterMedianWindow.clear();
@@ -841,30 +843,38 @@ void snapshotWater(float ts, float dtS) {
     // Do not insert invalid samples or erase valid history. The series ages out naturally.
     water.wetSeconds = 0;
     water.wetDurationValid = false;  // continuity broken: duration unknown
+    water.wetDurationLowerBound = true;
     waterRecoveryWindows = 0;
   } else {
     water.wet = ls::waterWetnessFromAdc(water.filt);
     water.series.add(ts, water.wet);
     if (water.wet >= ls::WATER_WET_THRESHOLD) {
       if (!water.wetDurationValid) {
-        // Do not guess the missing wet duration. Require a dry observation
-        // before the exact continuous exposure feature is valid again.
-        // Count clean wet windows for diagnostics only.
+        // Recover only after three consecutive clean wet snapshots. The first
+        // snapshot establishes a new observation start, not a guessed duration.
         if (q.health == ls::H_OK && !rawNoisy && cleanMedian && inRange) {
-          if (waterRecoveryWindows < 3) ++waterRecoveryWindows;
-        } else waterRecoveryWindows = 0;
-        if (waterRecoveryWindows == 3) {
-          Serial.println("[water] stable wet signal recovered; wet duration unknown until dry observation");
-          waterRecoveryWindows = 4;
+          if (waterRecoveryWindows == 0) water.wetSeconds = 0;
+          else water.wetSeconds += dtS;
+          if (++waterRecoveryWindows >= 3) {
+            water.wetDurationValid = true;
+            water.wetDurationLowerBound = true;
+            Serial.println("[water] wet observation recovered; duration is a lower bound");
+          }
+        } else {
+          waterRecoveryWindows = 0;
+          water.wetSeconds = 0;
         }
+      } else {
+        water.wetSeconds += dtS;
       }
-      water.wetSeconds += dtS;
     } else {
       water.wetSeconds = 0;
       water.wetDurationValid = true;
+      water.wetDurationLowerBound = false;
       waterRecoveryWindows = 0;
     }
   }
+  if (water.wetDurationLowerBound) water.flags |= ls::WF_DURATION_LOWER_BOUND;
   water.rate = water.series.slopePerMin(ts, WATER_WIN_S, WATER_MIN_PTS, 9.0f);
   water.mean30 = water.health == ls::H_FAULT ? NAN : water.series.mean(ts, WATER_WIN_S, WATER_MIN_PTS);
 }
