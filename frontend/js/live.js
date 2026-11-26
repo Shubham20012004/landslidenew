@@ -160,7 +160,7 @@ function renderBanner(r, dev) {
   if (state.stream !== "live") { msg = "Connection to the backend lost — values below are not live. Reconnecting automatically…"; cls = "bad"; }
   else if (dev && !deviceOnline(dev.device_id)) { msg = `No telemetry from ${dev.device_id} for ${duration(serverNow() - dev.last_seen_ts)}. Showing the last received data; it is not current.`; cls = "bad"; }
   else if (r?.origin === "simulated") { msg = "This device is a SIMULATOR (scripts/simulate_device.py). Its data is excluded from experimental training."; cls = "info"; }
-  else if (r?.prediction?.demo_model) { msg = "Demonstration mode: the active model was trained on synthetic data. Predictions demonstrate the software only."; cls = "info"; }
+  else if (r?.prediction?.demo_model) { msg = "Experimental mode: live device measurements are evaluated by a model trained on simulated demonstration scenarios. Not a validated landslide warning system."; cls = "info"; }
   b.textContent = msg;
   b.className = "banner " + cls + (msg ? "" : " hidden");
 }
