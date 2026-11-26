@@ -88,6 +88,7 @@ enum WaterFlag : uint16_t {
   WF_ABOVE_RANGE = 1 << 2,           // raw far above observed sensor range
   WF_HIGH_RAIL = 1 << 3,             // fault: at 3.3 V rail
   WF_UNSTABLE = 1 << 4,              // fault: very noisy
+  WF_DURATION_LOWER_BOUND = 1 << 5,  // wet start before observation or across a fault is unknown
 };
 
 enum MpuFlag : uint16_t {
@@ -132,7 +133,7 @@ static const NamedBit SOIL_FLAG_NAMES[] = {
 static const NamedBit WATER_FLAG_NAMES[] = {
     {WF_AT_DRY_ENDPOINT, "AT_DRY_ENDPOINT"}, {WF_ABOVE_WET_ENDPOINT, "ABOVE_WET_ENDPOINT"},
     {WF_ABOVE_RANGE, "ABOVE_SENSOR_RANGE"},  {WF_HIGH_RAIL, "ADC_HIGH_RAIL"},
-    {WF_UNSTABLE, "ADC_UNSTABLE"},
+    {WF_UNSTABLE, "ADC_UNSTABLE"}, {WF_DURATION_LOWER_BOUND, "WET_DURATION_LOWER_BOUND"},
 };
 static const NamedBit MPU_FLAG_NAMES[] = {
     {MF_ACCEL_SATURATED, "ACCEL_SATURATED"}, {MF_RECONNECTED, "RECONNECTED"},
