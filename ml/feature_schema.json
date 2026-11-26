@@ -1,0 +1,33 @@
+{
+  "version": "fs-1",
+  "description": "Random Forest input features computed on the ESP32 (firmware 4.x) and sent in telemetry schema 2.x. The same names are used in the database, training datasets and live inference.",
+  "classes": ["SAFE", "WATCH", "WARNING", "CRITICAL"],
+  "features": [
+    {"name": "soil_moisture", "path": "soil.moisture", "sensor": "soil", "unit": "fraction (0 dry .. 1 wet)", "min": 0, "max": 1,
+     "description": "Normalized soil moisture from fixed endpoints dry=4090, wet=921 ADC counts"},
+    {"name": "soil_rate_per_min", "path": "soil.rate_per_min", "sensor": "soil", "unit": "fraction per minute", "min": -120, "max": 120,
+     "description": "Least-squares slope of soil moisture over the last 30 s"},
+    {"name": "soil_std_30s", "path": "soil.std_30s", "sensor": "soil", "unit": "fraction", "min": 0, "max": 1,
+     "description": "Standard deviation of soil moisture over the last 30 s"},
+    {"name": "water_wetness", "path": "water.wetness", "sensor": "water", "unit": "fraction (0 dry .. 1 wet)", "min": 0, "max": 1,
+     "description": "Relative water exposure index from fixed endpoints dry=0, wet=1725 ADC counts (not rainfall intensity)"},
+    {"name": "water_wet_duration_s", "path": "water.wet_s", "sensor": "water", "unit": "s", "min": 0, "max": 10000000,
+     "description": "Continuous time with water wetness >= 0.10"},
+    {"name": "water_mean_30s", "path": "water.mean_30s", "sensor": "water", "unit": "fraction", "min": 0, "max": 1,
+     "description": "Mean water wetness over the last 30 s"},
+    {"name": "tilt_deg", "path": "mpu.tilt_deg", "sensor": "mpu", "unit": "deg", "min": 0, "max": 180,
+     "description": "Angle between the current and the session-baseline gravity vectors (orientation change, not ground displacement)"},
+    {"name": "tilt_rate_deg_per_min", "path": "mpu.tilt_rate_dpm", "sensor": "mpu", "unit": "deg per minute", "min": -20000, "max": 20000,
+     "description": "Least-squares slope of relative tilt over the last 10 s"},
+    {"name": "accel_dyn_g", "path": "mpu.acc_dyn_g", "sensor": "mpu", "unit": "g", "min": 0, "max": 30,
+     "description": "Standard deviation of acceleration magnitude over the upload interval (50 Hz samples)"},
+    {"name": "gyro_mag_dps", "path": "mpu.gyro_mag_dps", "sensor": "mpu", "unit": "deg/s", "min": 0, "max": 3500,
+     "description": "RMS bias-corrected angular rate magnitude over the upload interval"},
+    {"name": "vib_events_per_s", "path": "vib.eps", "sensor": "vib", "unit": "events/s", "min": 0, "max": 100000,
+     "description": "SW-420 filtered pulse events per second over the upload interval (20 ms dead time); not vibration amplitude or frequency"},
+    {"name": "vib_above_bg_per_s", "path": "vib.above_bg_eps", "sensor": "vib", "unit": "events/s", "min": 0, "max": 100000,
+     "description": "Filtered event rate above the background rate measured during calibration (floored at 0)"},
+    {"name": "vib_events_30s", "path": "vib.ev_30s", "sensor": "vib", "unit": "events", "min": 0, "max": 3000000,
+     "description": "Filtered SW-420 events in the last 30 s"}
+  ]
+}

@@ -1,0 +1,25 @@
+# secrets
+.env
+firmware/landslide_monitor/secrets.h
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# runtime data and logs (back up backend/data; do not commit it by accident)
+backend/data/
+logs/
+historical/outputs/
+
+# firmware build output
+firmware/landslide_monitor/.pio/
+firmware/landslide_monitor/build/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

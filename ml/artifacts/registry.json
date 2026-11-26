@@ -1,0 +1,11 @@
+{
+  "active": "rf-synthetic-20261126-133932",
+  "previous": null,
+  "history": [
+    {
+      "version": "rf-synthetic-20261126-133932",
+      "activated_at": 1795700376.134339,
+      "reason": "trained on synthetic"
+    }
+  ]
+}

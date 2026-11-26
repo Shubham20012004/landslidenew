@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\caption{GPIO pin assignment (generated from landslide\_monitor.ino)}
+\label{tab:gpio}
+\begin{tabular}{lll}
+\hline
+Signal & ESP32 pin / address & Remarks (from .ino) \\
+\hline
+PIN\_SOIL\_AO & 34 & ADC1\_CH6, input-only. ADC1 works while Wi-Fi is on. \\
+PIN\_RAIN\_AO & 35 & ADC1\_CH7, input-only. ADC1 works while Wi-Fi is on. \\
+PIN\_RAIN\_DO & 27 & optional digital output of rain module; -1 = not wired \\
+PIN\_I2C\_SDA & 25 & MPU6050 SDA (do not reuse while I2C is active) \\
+PIN\_I2C\_SCL & 26 & MPU6050 SCL (do not reuse while I2C is active) \\
+PIN\_LED\_SAFE & 16 & green, 220-330 ohm series resistor \\
+PIN\_LED\_WATCH & 17 & yellow, 220-330 ohm series resistor \\
+PIN\_LED\_WARNING & 18 & orange, 220-330 ohm series resistor \\
+PIN\_LED\_CRITICAL & 19 & red, 220-330 ohm series resistor \\
+PIN\_BUZZER & 23 & active buzzer, via NPN transistor if >\textasciitilde{}12 mA \\
+MPU\_ADDR\_PRIMARY & 0x68 & AD0 LOW \\
+MPU\_ADDR\_ALT & 0x69 & AD0 HIGH \\
+\hline
+\end{tabular}
+\end{table}

@@ -1,0 +1,17 @@
+# Python 3.10+ (verified with 3.10.9 on Windows 11)
+# Backend
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.4
+python-dotenv==1.0.1
+# Machine learning
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+joblib==1.4.2
+matplotlib==3.9.3
+pyparsing==3.1.4
+# Tests
+pytest==8.3.4
+httpx==0.28.1
+# Optional, for building the firmware from the command line: pip install platformio

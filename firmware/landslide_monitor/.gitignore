@@ -1,0 +1,14 @@
+# Real credentials — never commit
+secrets.h
+
+# PlatformIO build output
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+
+# Arduino build output
+build/
+*.bin
+*.elf
+*.map

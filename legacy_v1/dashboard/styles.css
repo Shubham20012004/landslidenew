@@ -1,0 +1,356 @@
+
+/* PREMIUM LANDSLIDE MONITOR DASHBOARD */
+
+:root {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --panel: #172335;
+  --panel-hover: #1c2b40;
+  --line: #2d3d53;
+  --text: #f3f7ff;
+  --muted: #9cadc3;
+  --accent: #65c6ff;
+  --safe: #34d399;
+  --watch: #facc15;
+  --warning: #fb923c;
+  --critical: #fb7185;
+  --unknown: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 22px 5%;
+  border-bottom: 1px solid var(--line);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.5vw, 1.8rem);
+  font-weight: 750;
+  letter-spacing: -0.5px;
+}
+
+.sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+select {
+  margin-left: 8px;
+  padding: 9px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  font: inherit;
+}
+
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 14px;
+  border-radius: 50px;
+  background: #25354b;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.pill.ok {
+  background: #123c32;
+  color: #6ee7b7;
+}
+
+.pill.bad {
+  background: #4b232b;
+  color: #fda4af;
+}
+
+.container {
+  max-width: 1280px;
+  margin: auto;
+  padding: 26px 24px 45px;
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+.grid-top {
+  grid-template-columns: 1.1fr 1fr;
+  margin-bottom: 18px;
+}
+
+.cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.panel,
+.card,
+.risk-box {
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.card {
+  transition: background 0.2s, transform 0.2s;
+}
+
+.card:hover {
+  background: var(--panel-hover);
+  transform: translateY(-2px);
+}
+
+.label,
+.card-title {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 550;
+}
+
+.risk-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 265px;
+  border-left: 5px solid var(--unknown);
+  background: var(--panel);
+}
+
+.risk-state {
+  margin: 12px 0 8px;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 850;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+.risk-score {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.health-line {
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+.source-tag {
+  margin-top: 16px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.risk-box.s-SAFE {
+  border-left-color: var(--safe);
+}
+.s-SAFE .risk-state {
+  color: var(--safe);
+}
+
+.risk-box.s-WATCH {
+  border-left-color: var(--watch);
+}
+.s-WATCH .risk-state {
+  color: var(--watch);
+}
+
+.risk-box.s-WARNING {
+  border-left-color: var(--warning);
+}
+.s-WARNING .risk-state {
+  color: var(--warning);
+}
+
+.risk-box.s-CRITICAL {
+  border-left-color: var(--critical);
+}
+.s-CRITICAL .risk-state {
+  color: var(--critical);
+}
+
+.risk-box.s-UNKNOWN {
+  border-left-color: var(--unknown);
+}
+.s-UNKNOWN .risk-state {
+  color: var(--unknown);
+}
+
+.health-list {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.health-list > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.chip {
+  min-width: 75px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  background: #2a3c50;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.chip.OK {
+  background: #123c32;
+  color: #6ee7b7;
+}
+
+.chip.FAULT {
+  background: #4b232b;
+  color: #fda4af;
+}
+
+.chip.UNCALIBRATED {
+  background: #493719;
+  color: #fde68a;
+}
+
+.small-block {
+  display: grid;
+  gap: 7px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.small-block b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.card {
+  padding: 22px;
+}
+
+.card-value {
+  margin: 12px 0;
+  color: var(--text);
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.chart-panel {
+  padding: 24px;
+}
+
+.chart-panel .label {
+  margin-bottom: 18px;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.chart-panel canvas {
+  width: 100% !important;
+  height: 340px !important;
+}
+
+@media (max-width: 850px) {
+  .grid-top {
+    grid-template-columns: 1fr;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 550px) {
+  .topbar {
+    padding: 18px;
+  }
+
+  .container {
+    padding: 18px 14px 35px;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .panel,
+  .card,
+  .risk-box {
+    padding: 18px;
+  }
+
+  .risk-box {
+    min-height: 210px;
+  }
+
+  .risk-state {
+    font-size: 2.8rem;
+  }
+
+  .chart-panel canvas {
+    height: 280px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

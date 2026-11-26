@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Landslide Monitor</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/vendor/chart.umd.min.js" defer></script>
+  <script type="module" src="/js/main.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+  <nav class="sidebar" aria-label="Sections">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div><div class="brand-name">Landslide Monitor</div><div class="brand-sub">4-sensor RF prototype</div></div>
+    </div>
+    <a href="#live" data-route="live">Live monitoring</a>
+    <a href="#history" data-route="history">History &amp; data logs</a>
+    <a href="#model" data-route="model">Model &amp; dataset</a>
+    <a href="#device" data-route="device">Device &amp; system</a>
+    <div class="sidebar-foot">
+      <div class="conn" id="streamPill" role="status"><span class="dot"></span><span>Connecting…</span></div>
+      <p class="note">Experimental prototype. Risk classes are Random Forest outputs, not validated public-safety warnings.</p>
+    </div>
+  </nav>
+
+  <main id="main" tabindex="-1">
+    <!-- ===================== LIVE ===================== -->
+    <section id="view-live" class="view" aria-labelledby="h-live">
+      <header class="pagehead">
+        <h1 id="h-live">Live monitoring</h1>
+        <label class="inline">Device <select id="deviceSelect" aria-label="Device"></select></label>
+      </header>
+
+      <div class="statusbar" id="statusbar">
+        <div><span class="k">Device</span><span class="v" id="sbDevice">—</span></div>
+        <div><span class="k">Backend</span><span class="v" id="sbBackend">—</span></div>
+        <div><span class="k">Session</span><span class="v mono" id="sbSession">—</span></div>
+        <div><span class="k">Last update</span><span class="v" id="sbUpdate">—</span></div>
+        <div><span class="k">Calibration</span><span class="v" id="sbCal">—</span></div>
+        <div><span class="k">Model</span><span class="v" id="sbModel">—</span></div>
+      </div>
+      <div class="banner hidden" id="liveBanner" role="alert"></div>
+
+      <div class="grid-live">
+        <section class="panel risk" id="riskPanel" aria-labelledby="h-risk">
+          <h2 id="h-risk" class="panel-title">Risk assessment <span class="badge demo hidden" id="demoBadge">Demo model · synthetic training data</span></h2>
+          <div class="risk-main">
+            <div class="risk-state" id="riskState">—</div>
+            <div class="risk-meta">
+              <div><span class="k">Model confidence</span><span class="v" id="riskConf">—</span></div>
+              <div><span class="k">Predicted</span><span class="v" id="riskTime">—</span></div>
+              <div><span class="k">Model</span><span class="v mono" id="riskModel">—</span></div>
+              <div><span class="k">Data quality</span><span class="v" id="riskQuality">—</span></div>
+            </div>
+          </div>
+          <p class="risk-reason" id="riskReason"></p>
+          <div class="probs" id="riskProbs" aria-label="Class probabilities"></div>
+          <p class="fine">Confidence is the model's class probability, not the probability of a real landslide.</p>
+        </section>
+
+        <section class="panel events" aria-labelledby="h-events">
+          <h2 id="h-events" class="panel-title">Recent events</h2>
+          <ol class="eventlist" id="liveEvents"></ol>
+        </section>
+      </div>
+
+      <div class="cards" id="sensorCards">
+        <section class="card" aria-labelledby="c-soil"><h3 id="c-soil">Soil moisture <span class="chip" id="soilHealth">—</span></h3>
+          <div class="big" id="soilPct">—</div>
+          <dl><dt>Raw ADC</dt><dd id="soilRaw">—</dd><dt>Trend</dt><dd id="soilTrend">—</dd><dt>Flags</dt><dd id="soilFlags">—</dd></dl></section>
+        <section class="card" aria-labelledby="c-water"><h3 id="c-water">Water exposure <span class="chip" id="waterHealth">—</span></h3>
+          <div class="big" id="waterPct">—</div>
+          <dl><dt>Raw ADC</dt><dd id="waterRaw">—</dd><dt>Wet for</dt><dd id="waterDur">—</dd><dt>Flags</dt><dd id="waterFlags">—</dd></dl></section>
+        <section class="card" aria-labelledby="c-mpu"><h3 id="c-mpu">Slope orientation (MPU6050) <span class="chip" id="mpuHealth">—</span></h3>
+          <div class="big" id="mpuTilt">—</div>
+          <dl><dt>Initial incl.</dt><dd id="mpuIncl0">—</dd><dt>Current incl.</dt><dd id="mpuIncl">—</dd><dt>Tilt rate</dt><dd id="mpuRate">—</dd></dl></section>
+        <section class="card" aria-labelledby="c-vib"><h3 id="c-vib">Vibration (SW-420) <span class="chip" id="vibHealth">—</span></h3>
+          <div class="big" id="vibEps">—</div>
+          <dl><dt>Background</dt><dd id="vibBg">—</dd><dt>Last 30 s</dt><dd id="vib30">—</dd><dt>Trend</dt><dd id="vibTrend">—</dd></dl></section>
+      </div>
+
+      <section class="panel" aria-labelledby="h-charts">
+        <div class="panel-head">
+          <h2 id="h-charts" class="panel-title">Sensor history</h2>
+          <div class="seg" role="group" aria-label="Time range" id="rangeSeg">
+            <button type="button" data-range="300">5 min</button>
+            <button type="button" data-range="900" class="on">15 min</button>
+            <button type="button" data-range="3600">1 h</button>
+            <button type="button" data-range="21600">6 h</button>
+            <button type="button" data-range="86400">24 h</button>
+          </div>
+        </div>
+        <div class="charts">
+          <figure><figcaption>Soil moisture (%)</figcaption><div class="chartbox"><canvas id="chSoil" aria-label="Soil moisture over time"></canvas></div></figure>
+          <figure><figcaption>Water exposure (%)</figcaption><div class="chartbox"><canvas id="chWater" aria-label="Water wetness over time"></canvas></div></figure>
+          <figure><figcaption>Relative tilt (°)</figcaption><div class="chartbox"><canvas id="chTilt" aria-label="Relative tilt over time"></canvas></div></figure>
+          <figure><figcaption>Vibration events per second</figcaption><div class="chartbox"><canvas id="chVib" aria-label="Vibration events per second over time"></canvas></div></figure>
+        </div>
+        <p class="fine" id="chartNote">Gaps mark periods without valid measurements; nothing is interpolated.</p>
+      </section>
+    </section>
+
+    <!-- ===================== HISTORY ===================== -->
+    <section id="view-history" class="view hidden" aria-labelledby="h-history">
+      <header class="pagehead"><h1 id="h-history">History &amp; data logs</h1></header>
+      <form class="filters panel" id="histForm">
+        <label>Device <select id="hDevice"></select></label>
+        <label>Session <select id="hSession"><option value="">All sessions</option></select></label>
+        <label>From <input type="datetime-local" id="hStart"></label>
+        <label>To <input type="datetime-local" id="hEnd"></label>
+        <label>Risk / status <select id="hRisk">
+          <option value="">Any</option><option>SAFE</option><option>WATCH</option><option>WARNING</option><option>CRITICAL</option>
+          <option value="UNAVAILABLE">No prediction</option></select></label>
+        <div class="filter-actions">
+          <button type="submit" class="btn primary">Apply</button>
+          <button type="button" class="btn" id="hReset">Reset</button>
+          <a class="btn" id="hExport" href="/api/export/csv" download>Export CSV</a>
+        </div>
+      </form>
+      <div class="banner hidden" id="histError" role="alert"></div>
+
+      <section class="panel" aria-labelledby="h-hcharts">
+        <h2 id="h-hcharts" class="panel-title">Sensor history <span class="muted" id="hChartInfo"></span></h2>
+        <div class="charts">
+          <figure><figcaption>Soil moisture (%)</figcaption><div class="chartbox"><canvas id="hSoil"></canvas></div></figure>
+          <figure><figcaption>Water exposure (%)</figcaption><div class="chartbox"><canvas id="hWater"></canvas></div></figure>
+          <figure><figcaption>Relative tilt (°)</figcaption><div class="chartbox"><canvas id="hTilt"></canvas></div></figure>
+          <figure><figcaption>Vibration events per second</figcaption><div class="chartbox"><canvas id="hVib"></canvas></div></figure>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-htable">
+        <div class="panel-head"><h2 id="h-htable" class="panel-title">Readings and predictions <span class="muted" id="hCount"></span></h2>
+          <div class="pager"><button class="btn" id="hNewer" type="button">← Newer</button><button class="btn" id="hOlder" type="button">Older →</button></div></div>
+        <div class="tablewrap"><table class="data" id="hTable">
+          <thead><tr><th>Received</th><th>Session</th><th>Seq</th><th>Soil %</th><th>Water %</th><th>Tilt °</th><th>Vib ev/s</th><th>Prediction</th><th>Conf.</th><th>Flags</th></tr></thead>
+          <tbody></tbody></table></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-hevents">
+        <div class="panel-head"><h2 id="h-hevents" class="panel-title">Event history</h2>
+          <button class="btn" id="hMoreEvents" type="button">Load more</button></div>
+        <div class="tablewrap"><table class="data" id="hEvents">
+          <thead><tr><th>Time</th><th>Severity</th><th>Event</th><th>Session</th><th>Detail</th></tr></thead><tbody></tbody></table></div>
+      </section>
+    </section>
+
+    <!-- ===================== MODEL ===================== -->
+    <section id="view-model" class="view hidden" aria-labelledby="h-model">
+      <header class="pagehead"><h1 id="h-model">Model &amp; dataset</h1></header>
+      <div class="grid-2">
+        <section class="panel" aria-labelledby="h-mstatus">
+          <h2 id="h-mstatus" class="panel-title">Active Random Forest</h2>
+          <div id="mStatus"></div>
+          <div class="admin-row">
+            <button class="btn" id="mReload" type="button">Reload model from registry</button>
+            <span class="muted" id="mReloadMsg" role="status"></span>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="h-mdata">
+          <h2 id="h-mdata" class="panel-title">Training dataset</h2>
+          <div id="mDataset"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="h-mmetrics">
+        <h2 id="h-mmetrics" class="panel-title">Held-out evaluation</h2>
+        <div id="mMetrics"></div>
+      </section>
+
+      <div class="grid-2">
+        <section class="panel" aria-labelledby="h-mimp">
+          <h2 id="h-mimp" class="panel-title">Permutation feature importance (held-out)</h2>
+          <div class="chartbox tall"><canvas id="mImp" aria-label="Feature importance"></canvas></div>
+          <div id="mImpTable" class="sr-table"></div>
+        </section>
+        <section class="panel" aria-labelledby="h-mschema">
+          <h2 id="h-mschema" class="panel-title">Feature schema <span class="muted" id="mSchemaVer"></span></h2>
+          <div class="tablewrap"><table class="data" id="mSchema"><thead><tr><th>Feature</th><th>Sensor</th><th>Unit</th></tr></thead><tbody></tbody></table></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="h-annot">
+        <h2 id="h-annot" class="panel-title">Experimental data labelling</h2>
+        <p class="muted">Label time ranges of <strong>real</strong> experiments with the condition you documented during the run. Model predictions are never used as labels. Simulated devices are excluded from training.</p>
+        <div id="mLabelSummary" class="tiles"></div>
+        <form class="filters" id="annForm">
+          <label>Device <select id="aDevice" required></select></label>
+          <label>Session <select id="aSession"><option value="">Any session in range</option></select></label>
+          <label>Start <input type="datetime-local" id="aStart" required step="1"></label>
+          <label>End <input type="datetime-local" id="aEnd" required step="1"></label>
+          <label>Observed condition <select id="aLabel" required><option>SAFE</option><option>WATCH</option><option>WARNING</option><option>CRITICAL</option></select></label>
+          <label class="wide">Notes <input type="text" id="aNotes" maxlength="500" placeholder="What was done / observed (e.g. 200 ml water at 12:04, 3° wedge)"></label>
+          <label>Admin token <input type="password" id="aToken" autocomplete="off" required></label>
+          <div class="filter-actions"><button class="btn primary" type="submit">Save label</button>
+            <a class="btn" href="/api/export/csv?scope=labeled" download>Export labelled training data</a></div>
+        </form>
+        <p class="muted" id="annMsg" role="status"></p>
+        <div class="tablewrap"><table class="data" id="annTable">
+          <thead><tr><th>Label</th><th>Device</th><th>Session</th><th>Start</th><th>End</th><th>Notes</th><th></th></tr></thead><tbody></tbody></table></div>
+        <details class="howto"><summary>Retraining (command line)</summary>
+          <p>Training runs from the command line so it can be reproduced and reviewed. It uses only labelled real readings and refuses to train when classes or sessions are insufficient:</p>
+          <pre>train.bat                 (Windows)      ./train.sh                (Linux)
+train.bat synthetic       demonstration model from synthetic data
+python -m ml.registry list | activate &lt;version&gt; | rollback</pre>
+          <p>Then press <em>Reload model from registry</em> above (admin token required) or restart the backend.</p>
+        </details>
+        <h3 class="subhead">Training runs</h3>
+        <div class="tablewrap"><table class="data" id="mRuns"><thead><tr><th>Version</th><th>Provenance</th><th>Created</th><th>Rows</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </section>
+    </section>
+
+    <!-- ===================== DEVICE ===================== -->
+    <section id="view-device" class="view hidden" aria-labelledby="h-device">
+      <header class="pagehead"><h1 id="h-device">Device &amp; system status</h1></header>
+      <section class="panel" aria-labelledby="h-devs">
+        <h2 id="h-devs" class="panel-title">Devices</h2>
+        <div class="tablewrap"><table class="data" id="dTable">
+          <thead><tr><th>Device</th><th>Origin</th><th>Status</th><th>Last telemetry</th><th>Firmware</th><th>Session</th><th>RSSI</th></tr></thead><tbody></tbody></table></div>
+      </section>
+      <div class="grid-2">
+        <section class="panel" aria-labelledby="h-ddetail"><h2 id="h-ddetail" class="panel-title">Selected device <span class="muted" id="dName"></span></h2><div id="dDetail"></div></section>
+        <section class="panel" aria-labelledby="h-dcal"><h2 id="h-dcal" class="panel-title">Calibration of current session</h2><div id="dCal"></div></section>
+      </div>
+      <div class="grid-2">
+        <section class="panel" aria-labelledby="h-dsens"><h2 id="h-dsens" class="panel-title">Sensor health and active faults</h2><div id="dSensors"></div></section>
+        <section class="panel" aria-labelledby="h-dsys"><h2 id="h-dsys" class="panel-title">Backend</h2><div id="dSystem"></div></section>
+      </div>
+      <section class="panel" aria-labelledby="h-dcomm"><h2 id="h-dcomm" class="panel-title">Recent communication events</h2>
+        <div class="tablewrap"><table class="data" id="dComm"><thead><tr><th>Time</th><th>Event</th><th>Device</th><th>Detail</th></tr></thead><tbody></tbody></table></div></section>
+    </section>
+  </main>
+</div>
+</body>
+</html>

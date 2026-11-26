@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Landslide Monitoring System</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="/static/vendor/chart.umd.min.js"></script>
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Landslide Monitoring System</h1>
+      <p class="sub">ESP32 Real-Time Sensor Monitoring</p>
+    </div>
+
+    <div class="topbar-right">
+      <label>
+        Time Range
+        <select id="window">
+          <option value="5">5 min</option>
+          <option value="15" selected>15 min</option>
+          <option value="60">1 hour</option>
+        </select>
+      </label>
+
+      <span id="conn" class="pill">Connecting...</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Risk + Health -->
+    <section class="grid grid-top">
+      <div id="stateBox" class="risk-box s-UNKNOWN">
+        <div class="label">Current Risk</div>
+        <div id="stateName" class="risk-state">UNKNOWN</div>
+        <div class="risk-score">Risk Score: <span id="score">—</span></div>
+        <div id="healthLine" class="health-line">Health: —</div>
+        <div id="sourceTag" class="source-tag">—</div>
+      </div>
+
+      <div class="panel">
+        <div class="label">Sensor Health</div>
+        <div class="health-list">
+          <div><span>Soil</span><span id="stSoil" class="chip">—</span></div>
+          <div><span>Rain</span><span id="stRain" class="chip">—</span></div>
+          <div><span>MPU6050</span><span id="stMpu" class="chip">—</span></div>
+        </div>
+
+        <div class="small-block">
+          <div>Device: <b id="devId">—</b></div>
+          <div>Firmware: <b id="fw">—</b></div>
+          <div>RSSI: <b id="rssi">—</b></div>
+          <div>Last Update: <b id="age">—</b></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sensor cards -->
+    <section class="grid cards">
+      <div class="card">
+        <div class="card-title">Soil Moisture</div>
+        <div id="cM" class="card-value">—</div>
+        <div class="card-note">Calibrated moisture index (0–1)</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Rain Activity</div>
+        <div id="cR" class="card-value">—</div>
+        <div class="card-note">Rain index (0–1)</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ground Tilt</div>
+        <div id="cT" class="card-value">—</div>
+        <div class="card-note">Degrees relative to baseline</div>
+      </div>
+    </section>
+
+    <!-- Chart -->
+    <section class="panel chart-panel">
+      <div class="label">Live Sensor Readings</div>
+      <canvas id="chSensors"></canvas>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+event_date,country_name,landslide_trigger,landslide_category,landslide_size,fatality_count,injury_count
+2015-07-02 00:00:00,India,downpour,landslide,medium,5,2
+2015-07-15 00:00:00,India,monsoon,mudslide,small,0,
+2016-07-20 00:00:00,Nepal,downpour,landslide,large,10,4
+2016-08-01 00:00:00,India,earthquake,rock_fall,medium,,1
+2017-01-05 00:00:00,Brazil,rain,landslide,small,2,0
+2017-09-11 00:00:00,Nepal,downpour,debris_flow,medium,0,0
+2018-11-30 00:00:00,Brazil,construction,landslide,small,0,
+2019-03-03 00:00:00,Peru,unknown,landslide,unknown,,

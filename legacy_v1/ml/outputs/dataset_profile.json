@@ -1,0 +1,72 @@
+{
+  "rows": 5000,
+  "columns": [
+    "experiment_id",
+    "timestamp",
+    "moisture_index",
+    "rain_index",
+    "tilt_change_deg",
+    "moisture_rate_per_min",
+    "tilt_rate_deg_per_min",
+    "risk_label"
+  ],
+  "dtypes": {
+    "experiment_id": "object",
+    "timestamp": "object",
+    "moisture_index": "float64",
+    "rain_index": "float64",
+    "tilt_change_deg": "float64",
+    "moisture_rate_per_min": "float64",
+    "tilt_rate_deg_per_min": "float64",
+    "risk_label": "object"
+  },
+  "missing": {
+    "experiment_id": 0,
+    "timestamp": 0,
+    "moisture_index": 0,
+    "rain_index": 0,
+    "tilt_change_deg": 0,
+    "moisture_rate_per_min": 0,
+    "tilt_rate_deg_per_min": 0,
+    "risk_label": 0
+  },
+  "class_counts": {
+    "WATCH": 2662,
+    "SAFE": 1266,
+    "WARNING": 770,
+    "CRITICAL": 302
+  },
+  "experiments": 50,
+  "rows_per_experiment": {
+    "min": 100,
+    "max": 100
+  },
+  "experiments_containing_class": {
+    "SAFE": 27,
+    "WATCH": 33,
+    "WARNING": 16,
+    "CRITICAL": 5
+  },
+  "numeric_ranges": {
+    "moisture_index": [
+      0.0,
+      100.0
+    ],
+    "rain_index": [
+      0.0,
+      100.0
+    ],
+    "tilt_change_deg": [
+      0.066,
+      5.951
+    ],
+    "moisture_rate_per_min": [
+      -4.455,
+      5.146
+    ],
+    "tilt_rate_deg_per_min": [
+      -0.0233,
+      0.0957
+    ]
+  }
+}

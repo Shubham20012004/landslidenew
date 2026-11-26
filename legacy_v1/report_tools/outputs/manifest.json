@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-11-22 21:38:58 +0530",
+  "db": "C:\\Users\\91820\\Downloads\\newlandslide\\landslide-monitor\\backend\\data\\landslide.db",
+  "allow_simulated": false,
+  "files": [
+    "table_5_1_gpio.md",
+    "table_5_1_gpio.tex"
+  ],
+  "still_missing": [
+    "SQLite database not found: run the backend and record experiments first."
+  ]
+}
