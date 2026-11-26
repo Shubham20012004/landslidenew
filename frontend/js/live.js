@@ -1,7 +1,7 @@
 // Live monitoring view.
 import { fillSensorCharts, sensorCharts } from "./charts.js";
 import { state, serverNow, deviceOnline, freshFor, offlineAfter } from "./state.js";
-import { $, ago, api, duration, esc, num, pct, RISKS, RISK_COLOR, setText, STATUS_TEXT, timeOf } from "./util.js";
+import { $, ago, api, duration, esc, num, pct, RISKS, RISK_COLOR, setText, STATUS_TEXT, timeOf, displayModelText } from "./util.js";
 
 let charts = null;
 let rangeS = 900;
@@ -100,7 +100,7 @@ function renderRisk(r) {
   }
   setText("riskConf", ok ? `${(p.confidence * 100).toFixed(1)} %` : "—");
   setText("riskTime", p?.predicted_ts ? `${timeOf(p.predicted_ts)} (${ago(serverNow() - p.predicted_ts)})` : "—");
-  setText("riskModel", p?.model_version ?? state.model?.active_version ?? "—");
+  setText("riskModel", displayModelText(p?.model_version ?? state.model?.active_version ?? "—"));
   setText("riskQuality", r ? (p?.data_quality === "DEGRADED" ? "Degraded (suspect sensor)" : p?.data_quality === "OK" ? "OK" : "—") : "—");
   $("demoBadge").classList.toggle("hidden", !(p?.demo_model || (!p && state.model?.demo_model)));
   const probs = $("riskProbs");
