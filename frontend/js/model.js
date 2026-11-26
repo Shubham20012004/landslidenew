@@ -1,6 +1,6 @@
 // Model & dataset view: active model, genuine metrics, feature schema, labelling.
 import { state, serverNow } from "./state.js";
-import { $, api, esc, fromLocalInput, num, options, riskPill, RISKS, setText, timeOf, toLocalInput } from "./util.js";
+import { $, api, esc, fromLocalInput, num, options, riskPill, RISKS, setText, timeOf, toLocalInput, displayModelText } from "./util.js";
 
 let impChart = null;
 const TOKEN_KEY = "landslide.adminToken";
@@ -19,15 +19,15 @@ function renderStatus(s) {
     ? `<span class="badge demo">Demonstration dataset (simulated)</span>`
     : s.provenance === "experimental" ? `<span class="badge">Live experimental sensor data</span>` : esc(s.provenance ?? "—");
   $("mStatus").innerHTML = kv([
-    ["Status", ready + (s.reason ? `<div class="warnline">${esc(s.reason)}</div>` : "")],
-    ["Active version", `<span class="mono">${esc(s.active_version ?? "none")}</span>`],
+    ["Status", ready + (s.reason ? `<div class="warnline">${esc(displayModelText(s.reason))}</div>` : "")],
+    ["Active version", `<span class="mono">${esc(displayModelText(s.active_version ?? "none"))}</span>`],
     ["Training data", prov],
     ["Created", esc(s.created_at ?? "—")],
     ["Demonstration mode", s.demo_mode ? "ON (demonstration models allowed)" : "off"],
     ["Feature schema", `${esc(s.feature_schema)} (model: ${esc(s.model_feature_schema ?? "—")})`],
     ["Hyperparameters", s.hyperparameters ? `<span class="mono">${esc(Object.entries(s.hyperparameters).map(([k, v]) => `${k}=${v}`).join(", "))}</span>` : "—"],
-    ["Available versions", esc((s.registry?.available || []).join(", ") || "—")],
-    ["Limitations", s.limitations ? `<ul>${s.limitations.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "—"],
+    ["Available versions", esc(displayModelText((s.registry?.available || []).join(", ") || "—"))],
+    ["Limitations", s.limitations ? `<ul>${s.limitations.map((l) => `<li>${esc(displayModelText(l))}</li>`).join("")}</ul>` : "—"],
   ]);
   const tbody = $("mSchema").querySelector("tbody");
   setText("mSchemaVer", `· ${s.feature_schema_detail?.version ?? ""}`);
@@ -46,7 +46,7 @@ function renderMetrics(m) {
   const x = m.metrics, t = x.test, base = x.majority_class_baseline, ds = x.dataset;
   const synthetic = x.provenance === "synthetic_demo";
   box.innerHTML = `
-    ${synthetic ? `<div class="banner info">${esc(x.data_note)}</div>` : ""}
+    ${synthetic ? `<div class="banner info">${esc(displayModelText(x.data_note))}</div>` : ""}
     <div class="tiles">
       <div class="tile"><div class="tv">${pctv(t.accuracy)}</div><div class="tk">Accuracy</div></div>
       <div class="tile"><div class="tv">${pctv(t.balanced_accuracy)}</div><div class="tk">Balanced accuracy</div></div>
@@ -64,7 +64,7 @@ function renderMetrics(m) {
     </div>
     <p class="fine">Split: ${esc(x.split.method)}. ${x.split.train_sessions} training sessions / ${x.split.test_sessions} held-out sessions; no session appears on both sides.</p>`;
   $("mDataset").innerHTML = kv([
-    ["Source", synthetic ? `<span class="badge demo">Demonstration dataset (simulated)</span> ${esc(ds.path)}` : `Real experimental readings (${esc(ds.path)})`],
+    ["Source", synthetic ? `<span class="badge demo">Demonstration dataset (simulated)</span> ${esc(String(ds.path ?? "").split(/[\\/]/).pop())}` : `Real experimental readings (${esc(ds.path)})`],
     ["Readings used", ds.rows_used.toLocaleString()],
     ["Sessions", ds.sessions],
     ["Class distribution", RISKS.map((c) => `${c} ${ds.class_counts[c].toLocaleString()}`).join(" · ")],
@@ -74,7 +74,7 @@ function renderMetrics(m) {
   ]);
   renderImportance(x.feature_importance?.permutation_balanced_accuracy);
   $("mRuns").querySelector("tbody").innerHTML = (m.training_runs || []).map((r) =>
-    `<tr><td class="mono">${esc(r.model_version)}</td><td>${esc(r.provenance === "synthetic_demo" ? "Demonstration dataset (simulated)" : r.provenance === "experimental" ? "Real experimental data" : r.provenance)}</td><td>${timeOf(r.created_at, true)}</td>
+    `<tr><td class="mono">${esc(displayModelText(r.model_version))}</td><td>${esc(r.provenance === "synthetic_demo" ? "Demonstration dataset (simulated)" : r.provenance === "experimental" ? "Real experimental data" : r.provenance)}</td><td>${timeOf(r.created_at, true)}</td>
      <td class="num">${(r.n_samples ?? 0).toLocaleString()}</td><td>${esc(r.status)}</td></tr>`).join("")
     || `<tr><td colspan="5" class="empty">No training runs recorded in this database.</td></tr>`;
 }
@@ -181,7 +181,7 @@ export function initModel() {
     if (!t) { setText("mReloadMsg", "Enter the admin token in the labelling form below first."); return; }
     try {
       const s = await api("/api/model/reload", { method: "POST", admin: t });
-      setText("mReloadMsg", s.ready ? `Loaded ${s.active_version}.` : `Not ready: ${s.reason}`);
+      setText("mReloadMsg", s.ready ? `Loaded ${displayModelText(s.active_version)}.` : `Not ready: ${s.reason}`);
       await showModel();
     } catch (err) { setText("mReloadMsg", err.message); }
   });
