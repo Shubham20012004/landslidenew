@@ -16,14 +16,14 @@ function renderStatus(s) {
     ? `<span class="pill SAFE">READY</span>`
     : `<span class="pill NA">MODEL NOT READY</span>`;
   const prov = s.provenance === "synthetic_demo"
-    ? `<span class="badge demo">SYNTHETIC demonstration data</span>`
-    : s.provenance === "experimental" ? `<span class="badge">Real experimental data</span>` : esc(s.provenance ?? "—");
+    ? `<span class="badge demo">Demonstration dataset (simulated)</span>`
+    : s.provenance === "experimental" ? `<span class="badge">Live experimental sensor data</span>` : esc(s.provenance ?? "—");
   $("mStatus").innerHTML = kv([
     ["Status", ready + (s.reason ? `<div class="warnline">${esc(s.reason)}</div>` : "")],
     ["Active version", `<span class="mono">${esc(s.active_version ?? "none")}</span>`],
     ["Training data", prov],
     ["Created", esc(s.created_at ?? "—")],
-    ["Demonstration mode", s.demo_mode ? "ON (synthetic models allowed)" : "off"],
+    ["Demonstration mode", s.demo_mode ? "ON (demonstration models allowed)" : "off"],
     ["Feature schema", `${esc(s.feature_schema)} (model: ${esc(s.model_feature_schema ?? "—")})`],
     ["Hyperparameters", s.hyperparameters ? `<span class="mono">${esc(Object.entries(s.hyperparameters).map(([k, v]) => `${k}=${v}`).join(", "))}</span>` : "—"],
     ["Available versions", esc((s.registry?.available || []).join(", ") || "—")],
@@ -64,7 +64,7 @@ function renderMetrics(m) {
     </div>
     <p class="fine">Split: ${esc(x.split.method)}. ${x.split.train_sessions} training sessions / ${x.split.test_sessions} held-out sessions; no session appears on both sides.</p>`;
   $("mDataset").innerHTML = kv([
-    ["Source", synthetic ? `<span class="badge demo">SYNTHETIC</span> ${esc(ds.path)}` : `Real experimental readings (${esc(ds.path)})`],
+    ["Source", synthetic ? `<span class="badge demo">Demonstration dataset (simulated)</span> ${esc(ds.path)}` : `Real experimental readings (${esc(ds.path)})`],
     ["Readings used", ds.rows_used.toLocaleString()],
     ["Sessions", ds.sessions],
     ["Class distribution", RISKS.map((c) => `${c} ${ds.class_counts[c].toLocaleString()}`).join(" · ")],
@@ -74,7 +74,7 @@ function renderMetrics(m) {
   ]);
   renderImportance(x.feature_importance?.permutation_balanced_accuracy);
   $("mRuns").querySelector("tbody").innerHTML = (m.training_runs || []).map((r) =>
-    `<tr><td class="mono">${esc(r.model_version)}</td><td>${esc(r.provenance)}</td><td>${timeOf(r.created_at, true)}</td>
+    `<tr><td class="mono">${esc(r.model_version)}</td><td>${esc(r.provenance === "synthetic_demo" ? "Demonstration dataset (simulated)" : r.provenance === "experimental" ? "Real experimental data" : r.provenance)}</td><td>${timeOf(r.created_at, true)}</td>
      <td class="num">${(r.n_samples ?? 0).toLocaleString()}</td><td>${esc(r.status)}</td></tr>`).join("")
     || `<tr><td colspan="5" class="empty">No training runs recorded in this database.</td></tr>`;
 }
