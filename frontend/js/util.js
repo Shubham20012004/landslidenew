@@ -101,3 +101,8 @@ export function options(select, items, { value, empty } = {}) {
     items.map((it) => `<option value="${esc(it.value)}">${esc(it.label)}</option>`).join("");
   if ([...select.options].some((o) => o.value === prev)) select.value = prev;
 }
+
+// Presentation only: preserve original identifiers in API calls and storage.
+export function displayModelText(value) {
+  return String(value ?? "—").replace(/synthetic_demo/gi, "simulated demonstration").replace(/synthetic/gi, "simulated");
+}
