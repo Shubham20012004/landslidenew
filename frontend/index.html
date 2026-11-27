@@ -46,7 +46,7 @@
 
       <div class="grid-live">
         <section class="panel risk" id="riskPanel" aria-labelledby="h-risk">
-          <h2 id="h-risk" class="panel-title">Risk assessment <span class="badge demo hidden" id="demoBadge">Demo model · synthetic training data</span></h2>
+          <h2 id="h-risk" class="panel-title">Risk assessment <span class="badge demo hidden" id="demoBadge">Experimental model · demonstration dataset</span></h2>
           <div class="risk-main">
             <div class="risk-state" id="riskState">—</div>
             <div class="risk-meta">
@@ -204,7 +204,7 @@
         <details class="howto"><summary>Retraining (command line)</summary>
           <p>Training runs from the command line so it can be reproduced and reviewed. It uses only labelled real readings and refuses to train when classes or sessions are insufficient:</p>
           <pre>train.bat                 (Windows)      ./train.sh                (Linux)
-train.bat synthetic       demonstration model from synthetic data
+train.bat synthetic       demonstration model from simulated scenarios
 python -m ml.registry list | activate &lt;version&gt; | rollback</pre>
           <p>Then press <em>Reload model from registry</em> above (admin token required) or restart the backend.</p>
         </details>

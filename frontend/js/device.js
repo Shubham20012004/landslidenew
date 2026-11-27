@@ -1,6 +1,6 @@
 // Device & system status view.
 import { state, serverNow, deviceOnline } from "./state.js";
-import { $, ago, api, duration, esc, num, setText, timeOf } from "./util.js";
+import { $, ago, api, duration, esc, num, setText, timeOf, displayModelText } from "./util.js";
 
 function kv(rows) {
   return `<dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
@@ -72,7 +72,7 @@ async function renderSystem() {
       ["API", `<span class="pill ${h.status === "ok" ? "SAFE" : "CRITICAL"}">${esc(h.status.toUpperCase())}</span> version ${esc(h.version)}`],
       ["Live stream", `<span id="dStream">${streamText()}</span>`],
       ["Database", `${h.database.ok ? "OK" : "ERROR"} · schema v${h.database.schema_version ?? "?"}`],
-      ["Model", h.model.ready ? `ready · <span class="mono">${esc(h.model.active_version)}</span>${h.model.demo_model ? " (synthetic demo)" : ""}` : `<span class="warnline">not ready — ${esc(h.model.reason)}</span>`],
+      ["Model", h.model.ready ? `ready · <span class="mono">${esc(displayModelText(h.model.active_version))}</span>${h.model.demo_model ? " (experimental model)" : ""}` : `<span class="warnline">not ready — ${esc(displayModelText(h.model.reason))}</span>`],
       ["Registered devices", esc(h.config.registered_devices.join(", ") || "none")],
       ["Offline after / stale after", `${h.config.device_offline_s} s / ${h.config.prediction_fresh_s} s`],
       ["Server time", timeOf(h.server_ts, true)],

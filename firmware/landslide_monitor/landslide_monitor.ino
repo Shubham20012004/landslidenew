@@ -59,7 +59,7 @@
 // ----------------------------------------------------------------------------
 // Versions
 // ----------------------------------------------------------------------------
-static const char* FW_VERSION = "4.0.0";
+static const char* FW_VERSION = "4.0.3";
 static const char* TELEMETRY_SCHEMA = "2.0";
 static const char* FEATURE_SCHEMA = "fs-1";
 
@@ -188,6 +188,7 @@ static struct {
   float wet, rate, mean30;
   float wetSeconds;
   bool wetDurationValid;
+  bool wetDurationLowerBound;
   Health health;
   uint16_t flags;
   ls::RunningStats win;
@@ -250,6 +251,10 @@ static uint32_t queueDropped = 0;
 // Shared with the network task
 static PredState pred;
 static NetState net;
+// Physical alert state is separate from the unmodified RF prediction.
+static Risk alertRisk = ls::RISK_NONE, lowerCandidate = ls::RISK_NONE;
+static uint8_t lowerCount = 0;
+static bool latestPredictionAvailable = false;
 
 // Indicators
 static uint32_t testStartMs = 0;
@@ -459,6 +464,26 @@ int adcAverage(int pin) {
   return (int)(s / 4);
 }
 
+// Median across five 10 Hz channel averages: rejects isolated spikes, not sustained wetting.
+static int waterMedianSamples[5];
+static uint8_t waterMedianCount = 0, waterMedianPos = 0;
+static ls::Series<16> waterMedianWindow;
+static uint8_t waterNoisyWindows = 0;
+static uint8_t waterRecoveryWindows = 0;
+int waterMedian(int value) {
+  waterMedianSamples[waterMedianPos] = value;
+  waterMedianPos = (waterMedianPos + 1) % 5;
+  if (waterMedianCount < 5) ++waterMedianCount;
+  int sorted[5];
+  for (uint8_t i = 0; i < waterMedianCount; ++i) {
+    sorted[i] = waterMedianSamples[i];
+    for (int j = i; j > 0 && sorted[j] < sorted[j-1]; --j) {
+      int tmp = sorted[j]; sorted[j] = sorted[j-1]; sorted[j-1] = tmp;
+    }
+  }
+  return sorted[waterMedianCount / 2];
+}
+
 void adcSample() {
   uint32_t now = millis();
   if (now - lastAdcMs < ADC_PERIOD_MS) return;
@@ -482,8 +507,10 @@ void adcSample() {
 
   int w = adcAverage(PIN_WATER_S);
   water.raw = w;
-  water.filt = ls::isFiniteF(water.filt) ? water.filt + 0.3f * (w - water.filt) : (float)w;
+  int filteredInput = waterMedian(w);
+  water.filt = ls::isFiniteF(water.filt) ? water.filt + 0.3f * (filteredInput - water.filt) : (float)filteredInput;
   water.win.add((float)w);
+  waterMedianWindow.add((float)now / 1000.0f, (float)filteredInput);
 }
 
 // ----------------------------------------------------------------------------
@@ -495,7 +522,13 @@ void resetSessionHistories() {
   water.series.clear();
   water.rate = water.mean30 = NAN;
   water.wetSeconds = 0;
-  water.wetDurationValid = true;
+  water.wetDurationValid = false;
+  water.wetDurationLowerBound = true;
+  waterNoisyWindows = 0;
+  waterRecoveryWindows = 0;
+  waterMedianWindow.clear();
+  waterMedianCount = waterMedianPos = 0;
+  water.win.reset();
   mpu.tiltSeries.clear();
   mpu.tiltRate = NAN;
   mpu.flags = 0;
@@ -527,6 +560,9 @@ void startCalibration(const char* trigger) {
   // A new session never inherits the previous session's prediction.
   portENTER_CRITICAL(&gMux);
   pred.valid = false;
+  alertRisk = lowerCandidate = ls::RISK_NONE;
+  lowerCount = 0;
+  latestPredictionAvailable = false;
   net.backendStatus[0] = 0;
   net.backendReason[0] = 0;
   net.backendSensorFault = false;
@@ -771,26 +807,76 @@ void snapshotSoil(float ts) {
 void snapshotWater(float ts, float dtS) {
   float winStd = water.win.stddev();
   water.win.reset();
+  // Distinguish a step/ramp (wetting or drying) from repeated reversals.
+  // A high raw rail is always a fault; a noisy but coherent in-range step
+  // can be used as suspect data, without erasing the valid feature history.
+  float mt[16], mv[16];
+  int n = waterMedianWindow.collect(ts - 1.0f, mt, mv);
+  float travel = 0, netChange = 0;
+  int reversals = 0, lastDirection = 0;
+  for (int i = 1; i < n; ++i) {
+    float d = mv[i] - mv[i-1];
+    if (fabsf(d) < 40.0f) continue;
+    travel += fabsf(d);
+    netChange += d;
+    int direction = d > 0 ? 1 : -1;
+    if (lastDirection && direction != lastDirection) ++reversals;
+    lastDirection = direction;
+  }
+  float medianStd = waterMedianWindow.stddev(ts, 1.0f, 5);
+  bool cleanMedian = n >= 5 && ls::isFiniteF(medianStd) && medianStd <= ls::ADC_UNSTABLE_STD;
+  bool coherentStep = n >= 5 && travel >= 300.0f && fabsf(netChange) >= 0.85f * travel && reversals <= 1;
+  bool rawNoisy = ls::isFiniteF(winStd) && winStd > ls::ADC_UNSTABLE_STD;
+  bool inRange = water.raw >= 0 && water.raw <= ls::WATER_ABOVE_RANGE_THRESHOLD &&
+                 ls::isFiniteF(water.filt) && water.filt <= ls::WATER_ABOVE_RANGE_THRESHOLD;
+  if (rawNoisy && !coherentStep) { if (waterNoisyWindows < 3) ++waterNoisyWindows; }
+  else waterNoisyWindows = 0;
   ls::WaterQuality q = ls::classifyWater(water.raw, water.filt, winStd);
+  if (q.health == ls::H_FAULT && (q.flags & ls::WF_UNSTABLE) && inRange &&
+      (coherentStep || (cleanMedian && waterNoisyWindows < 3))) {
+    q.health = ls::H_SUSPECT;
+  }
   water.health = q.health;
   water.flags = q.flags;
   if (q.health == ls::H_FAULT) {
     water.wet = NAN;
-    water.series.clear();
+    // Do not insert invalid samples or erase valid history. The series ages out naturally.
     water.wetSeconds = 0;
     water.wetDurationValid = false;  // continuity broken: duration unknown
+    water.wetDurationLowerBound = true;
+    waterRecoveryWindows = 0;
   } else {
     water.wet = ls::waterWetnessFromAdc(water.filt);
     water.series.add(ts, water.wet);
     if (water.wet >= ls::WATER_WET_THRESHOLD) {
-      water.wetSeconds += dtS;
+      if (!water.wetDurationValid) {
+        // Recover only after three consecutive clean wet snapshots. The first
+        // snapshot establishes a new observation start, not a guessed duration.
+        if (q.health == ls::H_OK && !rawNoisy && cleanMedian && inRange) {
+          if (waterRecoveryWindows == 0) water.wetSeconds = 0;
+          else water.wetSeconds += dtS;
+          if (++waterRecoveryWindows >= 3) {
+            water.wetDurationValid = true;
+            water.wetDurationLowerBound = true;
+            Serial.println("[water] wet observation recovered; duration is a lower bound");
+          }
+        } else {
+          waterRecoveryWindows = 0;
+          water.wetSeconds = 0;
+        }
+      } else {
+        water.wetSeconds += dtS;
+      }
     } else {
       water.wetSeconds = 0;
       water.wetDurationValid = true;
+      water.wetDurationLowerBound = false;
+      waterRecoveryWindows = 0;
     }
   }
+  if (water.wetDurationLowerBound) water.flags |= ls::WF_DURATION_LOWER_BOUND;
   water.rate = water.series.slopePerMin(ts, WATER_WIN_S, WATER_MIN_PTS, 9.0f);
-  water.mean30 = water.series.mean(ts, WATER_WIN_S, WATER_MIN_PTS);
+  water.mean30 = water.health == ls::H_FAULT ? NAN : water.series.mean(ts, WATER_WIN_S, WATER_MIN_PTS);
 }
 
 void snapshotMpu(float ts) {
@@ -976,7 +1062,7 @@ bool queuePickNext(Reading& out, bool& isLive) {
   xSemaphoreTake(queueMutex, portMAX_DELAY);
   if (queueCount > 0) {
     Reading& newest = queueItems[(queueHead + queueCount - 1) % QUEUE_CAP];
-    if (newest.attempts == 0) {
+    if (newest.attempts == 0 && millis() - newest.uptimeMs <= PRED_FRESH_MS) {
       out = newest;
       isLive = true;
     } else {
@@ -1211,7 +1297,32 @@ void handleResponse(const Reading& r, bool isLive, const char* body) {
   }
   bool changed = false;
   Risk prevRisk = pred.risk;
+  if (forCurrent && c != ls::PC_VALID) {
+    latestPredictionAvailable = false;
+    lowerCount = 0;
+    lowerCandidate = ls::RISK_NONE;
+  }
   if (forCurrent && c == ls::PC_VALID) {
+    bool newModel = pred.valid && strcmp(pred.model, p.modelVersion) != 0;
+    bool continuous = latestPredictionAvailable && pred.valid &&
+                      millis() - pred.readingUptimeMs <= PRED_FRESH_MS &&
+                      r.seq == pred.readingSeq + 1 && !newModel;
+    if (!continuous) { lowerCount = 0; lowerCandidate = ls::RISK_NONE; }
+    latestPredictionAvailable = true;
+    // Escalate immediately on any valid higher RF class. Downgrade only after
+    // three consecutive matching lower classes with >= 0.50 model confidence.
+    if (p.risk >= alertRisk) {
+      alertRisk = p.risk;
+      lowerCount = 0;
+      lowerCandidate = ls::RISK_NONE;
+    } else if (ls::isFiniteF(p.confidence) && p.confidence >= 0.50f) {
+      if (lowerCandidate != p.risk) { lowerCandidate = p.risk; lowerCount = 0; }
+      if (++lowerCount >= 3) {
+        alertRisk = p.risk;
+        lowerCount = 0;
+        lowerCandidate = ls::RISK_NONE;
+      }
+    } else { lowerCount = 0; lowerCandidate = ls::RISK_NONE; }
     changed = !pred.valid || prevRisk != p.risk;
     pred.valid = true;
     pred.sessionNo = r.sessionNo;
@@ -1226,8 +1337,10 @@ void handleResponse(const Reading& r, bool isLive, const char* body) {
   portEXIT_CRITICAL(&gMux);
 
   if (changed) Serial.printf("[ml] %s (confidence %.2f, model %s)\n", ls::riskName(p.risk), p.confidence, p.modelVersion);
+  if (forCurrent && c == ls::PC_VALID && (!ls::isFiniteF(p.confidence) || p.confidence < 0.50f))
+    Serial.printf("[ml] low-confidence classification: %s (%.2f)\n", ls::riskName(p.risk), p.confidence);
   if (isLive && c != ls::PC_VALID && c != ls::PC_UNAVAILABLE)
-    Serial.printf("[net] prediction response rejected: %s\n", ls::predCheckName(c));
+    Serial.printf("[net] prediction response rejected: %s (reading age %lu ms)\n", ls::predCheckName(c), (unsigned long)age);
 }
 
 void netTask(void*) {
@@ -1287,6 +1400,8 @@ void netTask(void*) {
       vTaskDelay(pdMS_TO_TICKS(20));
       continue;
     }
+    // Never present backlog as a fresh reading or let it drive alerts.
+    if (millis() - r.uptimeMs > PRED_FRESH_MS) isLive = false;
     bool replay = !isLive || r.attempts > 0;
     if (!buildTelemetryJson(r, replay, netJson, sizeof(netJson))) {
       Serial.println("[net] JSON buffer overflow; reading dropped");
@@ -1373,7 +1488,11 @@ ls::IndicationInput indicationInput() {
   in.backendSensorFault = net.backendSensorFault && net.backendStatusSession == sessionNo;
   in.havePrediction = pred.valid && pred.sessionNo == sessionNo;
   in.predictionAgeMs = millis() - pred.readingUptimeMs;
-  in.predictedRisk = pred.risk;
+  in.predictedRisk = alertRisk;
+  // An unavailable result or current fault cannot refresh a previous alert.
+  if (!latestPredictionAvailable || in.localSensorFault || in.backendSensorFault || !in.backendReachable) {
+    in.predictionAgeMs = PRED_FRESH_MS + 1;
+  }
   portEXIT_CRITICAL(&gMux);
   return in;
 }
